@@ -36,7 +36,7 @@
 #include <linux/pfn.h> 		/* PFN_* macros */
 
 #include <linux/kallsyms.h>
-
+#include <linux/kprobes.h>
 #include "kedr_instrumentor_internal.h"
 #include "config.h"
 
@@ -432,16 +432,26 @@ static int (*do_set_memory_rw)(unsigned long addr, int numpages) = NULL;
 static int
 prepare_set_memory_rx_funcs(void)
 {
+	
+
+	/* Attach kprobe to kaalsysms_lookup_name to
+	 * get function address (symbol no longer exported */
+	typedef unsigned long (*kallsyms_lookup_name_t)(const char *name);
+	kallsyms_lookup_name_t kallsyms_lookup_name;
+	register_kprobe(&kp);
+	kallsyms_lookup_name = (kallsyms_lookup_name_t) kp.addr;
+	unregister_kprobe(&kp);
+
 	do_set_memory_ro = (void *)kallsyms_lookup_name("set_memory_ro");
 	if (do_set_memory_ro == NULL) {
-		pr_warning(COMPONENT_STRING
+		pr_warn(COMPONENT_STRING
 		"Symbol not found: 'set_memory_ro'\n");
 		return -EINVAL;
 	}
 
 	do_set_memory_rw = (void *)kallsyms_lookup_name("set_memory_rw");
 	if (do_set_memory_rw == NULL) {
-		pr_warning(COMPONENT_STRING
+		pr_warn(COMPONENT_STRING
 		"Symbol not found: 'set_memory_rw'\n");
 		return -EINVAL;
 	}
